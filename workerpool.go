@@ -2,20 +2,27 @@ package woorkerpool
 
 import "sync"
 
+// New spawns a pool of numWorkers workers to simultaneously call the given
+// handler.
+//
+// It returns the a chan that's used to queue the jobs and sync.WaitGroup to
+// indicate when all jobs are done processing.
 func New(numWorkers int, handler func(interface{}) error) (chan interface{}, *sync.WaitGroup) {
-	c := make(chan interface{})
-	var wg sync.WaitGroup
+	var (
+		inputCh = make(chan interface{})
+		waiter  sync.WaitGroup
+	)
 
 	for i := 0; i < numWorkers; i++ {
 		go func() {
-			for cc := range c {
-				if err := handler(cc); err != nil {
+			for input := range inputCh {
+				if err := handler(input); err != nil {
 					panic(err)
 				}
-				wg.Done()
+				waiter.Done()
 			}
 		}()
 	}
 
-	return c, &wg
+	return inputCh, &waiter
 }
